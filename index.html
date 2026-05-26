@@ -1,24 +1,9 @@
-
-                        <!DOCTYPE html>
-                        <html lang="en">
-                        <head>
-                            <meta charset="UTF-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-							<style>
-								body {
-									background-color: white; /* Ensure the iframe has a white background */
-								}
-
-								
-							</style>
-                        </head>
-                        <body>
-                            <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rosalina's Luma Gathering</title>
+    <title>Rosalina's Rainbow Lumas</title>
     <style>
         body {
             margin: 0;
@@ -36,7 +21,6 @@
             background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
         }
 
-        /* Starry Background */
         .star {
             position: absolute;
             background: white;
@@ -57,6 +41,7 @@
             pointer-events: none;
             text-shadow: 2px 2px #000;
             font-size: 24px;
+            z-index: 5;
         }
 
         #start-screen, #game-over {
@@ -103,8 +88,8 @@
         </div>
 
         <div id="start-screen">
-            <h1>Rosalina's Luma Gathering</h1>
-            <p>Drag the floating Lumas back to Rosalina's throne!</p>
+            <h1>Rosalina's Rainbow Lumas</h1>
+            <p>Drag the colorful stars back to Rosalina in the center!</p>
             <button onclick="startGame()">START GAME</button>
         </div>
 
@@ -126,7 +111,6 @@
     const startScreen = document.getElementById('start-screen');
     const gameOverScreen = document.getElementById('game-over');
 
-    // Game State
     let level = 1;
     let timeLeft = 30;
     let lumas = [];
@@ -135,9 +119,7 @@
     let gameTimer = null;
     let audioCtx = null;
 
-    // Config
-    const ROSALINA_SIZE = 60;
-    const LUMA_SIZE = 15;
+    const LUMA_SIZE = 20;
 
     function resize() {
         canvas.width = window.innerWidth;
@@ -146,19 +128,26 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // --- AUDIO ENGINE (16-bit style) ---
+    // --- AUDIO ENGINE ---
     function initAudio() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    function playChime() {
+    // Chime frequency based on Luma Hue (0-360)
+    function playChime(hue) {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
+        
+        // Map hue (0-360) to frequency (261Hz to 880Hz)
+        const freq = 261.63 + (hue / 360) * (880 - 261.63);
+        
         osc.type = 'triangle'; 
-        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
-        osc.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.1); // C6
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + 0.1);
+        
         gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
@@ -166,16 +155,15 @@
     }
 
     function startMusic() {
-        const notes = [261.63, 329.63, 392.00, 523.25]; // C Major chord
+        const notes = [261.63, 329.63, 392.00, 523.25];
         let step = 0;
-        
         setInterval(() => {
             if(!isPlaying) return;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'square'; // Classic NES/SNES sound
+            osc.type = 'square';
             osc.frequency.setValueAtTime(notes[step % notes.length], audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
             osc.connect(gain);
             gain.connect(audioCtx.destination);
@@ -189,74 +177,101 @@
     class Luma {
         constructor() {
             this.x = Math.random() * (canvas.width - 100) + 50;
-            this.y = Math.random() * (canvas.height - 200) + 50;
+            this.y = Math.random() * (canvas.height - 100) + 50;
             this.baseX = this.x;
             this.baseY = this.y;
             this.offset = Math.random() * Math.PI * 2;
-            this.color = `hsl(${Math.random() * 60 + 40}, 100%, 70%)`;
+            this.hue = Math.random() * 360; // Rainbow Hue
+            this.color = `hsl(${this.hue}, 100%, 70%)`;
         }
 
         update() {
             if (this !== draggedLuma) {
-                // Floating movement
                 this.x = this.baseX + Math.sin(Date.now() / 1000 + this.offset) * 20;
                 this.y = this.baseY + Math.cos(Date.now() / 1000 + this.offset) * 20;
             }
         }
 
-        draw() {
+        drawStar(cx, cy, spikes, outerRadius, innerRadius) {
+            let rot = Math.PI / 2 * 3;
+            let x = cx;
+            let y = cy;
+            let step = Math.PI / spikes;
+
             ctx.beginPath();
-            ctx.arc(this.x, this.y, LUMA_SIZE, 0, Math.PI * 2);
-            ctx.fillStyle = this.color;
+            ctx.moveTo(cx, cy - outerRadius);
+            
+            for (let i = 0; i < spikes; i++) {
+                x = cx + Math.cos(rot) * outerRadius;
+                y = cy + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+
+                x = cx + Math.cos(rot) * innerRadius;
+                y = cy + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+            }
+            ctx.lineTo(cx, cy - outerRadius);
+            ctx.closePath();
+        }
+
+        draw() {
+            ctx.save();
             ctx.shadowBlur = 15;
             ctx.shadowColor = this.color;
-            ctx.fill();
-            ctx.shadowBlur = 0;
+            ctx.fillStyle = this.color;
             
-            // Little eyes
+            // Rounded edge effect using lineJoin and a thick stroke
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 4;
+            
+            this.drawStar(this.x, this.y, 5, LUMA_SIZE, LUMA_SIZE / 2);
+            ctx.fill();
+            ctx.stroke(); 
+            ctx.restore();
+            
+            // Eyes
             ctx.fillStyle = "black";
-            ctx.fillRect(this.x - 4, this.y - 4, 2, 2);
-            ctx.fillRect(this.x + 2, this.y - 4, 2, 2);
+            ctx.beginPath();
+            ctx.arc(this.x - 4, this.y - 2, 2, 0, Math.PI*2);
+            ctx.arc(this.x + 4, this.y - 2, 2, 0, Math.PI*2);
+            ctx.fill();
         }
     }
 
     function drawRosalina() {
-        const rx = canvas.width - 100;
-        const ry = canvas.height - 100;
+        const rx = canvas.width / 2;
+        const ry = canvas.height / 2;
 
         // Throne
         ctx.fillStyle = "#ffd700";
-        ctx.fillRect(rx - 40, ry, 80, 40);
-        ctx.fillRect(rx - 30, ry - 40, 60, 40);
+        ctx.fillRect(rx - 40, ry, 80, 30);
+        ctx.fillRect(rx - 30, ry - 30, 60, 30);
 
         // Rosalina (Simple 16-bit representation)
-        // Dress
-        ctx.fillStyle = "#4a90e2";
+        ctx.fillStyle = "#4a90e2"; // Blue Dress
         ctx.beginPath();
-        ctx.moveTo(rx, ry - 20);
-        ctx.lineTo(rx - 20, ry);
-        ctx.lineTo(rx + 20, ry);
+        ctx.moveTo(rx, ry - 10);
+        ctx.lineTo(rx - 20, ry + 10);
+        ctx.lineTo(rx + 20, ry + 10);
         ctx.fill();
 
-        // Head
-        ctx.fillStyle = "#ffe0bd";
+        ctx.fillStyle = "#ffe0bd"; // Skin
         ctx.beginPath();
-        ctx.arc(rx, ry - 30, 12, 0, Math.PI * 2);
+        ctx.arc(rx, ry - 20, 12, 0, Math.PI * 2);
         ctx.fill();
 
-        // Hair (Platinum blonde)
-        ctx.fillStyle = "#fdf5e6";
+        ctx.fillStyle = "#fdf5e6"; // Hair
         ctx.beginPath();
-        ctx.arc(rx, ry - 35, 14, Math.PI, 0);
+        ctx.arc(rx, ry - 25, 14, Math.PI, 0);
         ctx.fill();
-        ctx.fillRect(rx + 10, ry - 35, 8, 20);
+        ctx.fillRect(rx + 10, ry - 25, 8, 20);
 
-        // Crown
-        ctx.fillStyle = "gold";
-        ctx.fillRect(rx - 5, ry - 45, 10, 5);
+        ctx.fillStyle = "gold"; // Crown
+        ctx.fillRect(rx - 5, ry - 35, 10, 5);
     }
 
-    // --- CORE LOGIC ---
     function spawnLumas() {
         lumas = [];
         const count = 5 + (level * 3);
@@ -297,7 +312,6 @@
         document.getElementById('over-msg').innerText = win ? "All Lumas are safe!" : "Time ran out!";
     }
 
-    // --- INPUT ---
     canvas.addEventListener('mousedown', (e) => {
         const mouseX = e.clientX;
         const mouseY = e.clientY;
@@ -318,7 +332,6 @@
         draggedLuma = null;
     });
 
-    // Touch support
     canvas.addEventListener('touchstart', (e) => {
         const touch = e.touches[0];
         const mouseX = touch.clientX;
@@ -337,10 +350,8 @@
     });
     window.addEventListener('touchend', () => { draggedLuma = null; });
 
-    // --- GAME LOOP ---
     function loop() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
         drawRosalina();
 
         if (isPlaying) {
@@ -348,13 +359,12 @@
                 luma.update();
                 luma.draw();
 
-                // Check if Luma reached Rosalina
-                const rx = canvas.width - 100;
-                const ry = canvas.height - 100;
+                const rx = canvas.width / 2;
+                const ry = canvas.height / 2;
                 const dist = Math.hypot(luma.x - rx, luma.y - ry);
 
-                if (dist < 50) {
-                    playChime();
+                if (dist < 60) {
+                    playChime(luma.hue);
                     lumas.splice(index, 1);
                     lumaDisplay.innerText = lumas.length;
                     
@@ -365,11 +375,9 @@
                 }
             });
         }
-
         requestAnimationFrame(loop);
     }
 
-    // Create Background Stars
     function createStars() {
         const container = document.getElementById('game-container');
         for (let i = 0; i < 100; i++) {
@@ -390,10 +398,3 @@
 </script>
 </body>
 </html>
-
-							<script>
-                            	
-							</script>
-                        </body>
-                        </html>
-                    
