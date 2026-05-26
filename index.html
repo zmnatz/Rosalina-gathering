@@ -1,393 +1,399 @@
-<!DOCTYPE html>
+
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+							<style>
+								body {
+									background-color: white; /* Ensure the iframe has a white background */
+								}
+
+								
+							</style>
+                        </head>
+                        <body>
+                            <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Surfing Blooper</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rosalina's Luma Gathering</title>
     <style>
         body {
             margin: 0;
-            padding: 0;
             overflow: hidden;
-            background-color: #00b4db;
-            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial', sans-serif;
-            touch-action: none;
+            background-color: #050b24;
+            font-family: 'Courier New', Courier, monospace;
+            color: white;
+            user-select: none;
         }
-        canvas {
-            display: block;
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
         }
+
+        /* Starry Background */
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.5;
+            animation: twinkle var(--duration) infinite ease-in-out;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
         #ui {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            text-shadow: 2px 2px #000;
+            font-size: 24px;
+        }
+
+        #start-screen, #game-over {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            color: white;
-            text-align: center;
-            pointer-events: none;
-        }
-        .menu-box {
-            background: rgba(255, 255, 255, 0.4);
-            backdrop-filter: blur(15px);
-            padding: 30px;
-            border-radius: 40px;
-            pointer-events: auto;
-            border: 8px solid #fff;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
-            max-width: 90%;
-        }
-        h1 { margin: 0 0 10px 0; font-size: 3rem; text-shadow: 4px 4px #ff69b4; color: #fff; }
-        p { font-size: 1.3rem; margin-bottom: 20px; color: #fff; font-weight: bold; }
-        
-        /* Character Picker Grid */
-        .char-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        .char-btn {
-            padding: 10px;
-            background: #fff;
-            border: 4px solid #ffeb3b;
-            border-radius: 20px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        .char-btn img {
-            width: 60px;
-            height: 60px;
-            object-fit: contain;
-        }
-        .char-btn:hover { background: #ffeb3b; }
-        .char-btn.selected {
-            background: #ffeb3b;
-            border-color: #e91e63;
-            transform: scale(1.1);
-            box-shadow: 0 0 15px #fff;
-        }
-        
-        .start-btn {
-            padding: 20px 50px;
-            font-size: 2rem;
-            background: #ffeb3b;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: bold;
-            color: #e91e63;
-            box-shadow: 0 8px #fbc02d;
-        }
-        #score-display {
-            position: absolute;
-            top: 30px;
-            width: 100%;
-            text-align: center;
-            font-size: 4rem;
-            font-weight: bold;
-            color: white;
-            text-shadow: 4px 4px #ff69b4;
-            pointer-events: none;
-            display: none;
             z-index: 10;
-        }
-        #level-up {
-            position: absolute;
-            top: 110px;
-            width: 100%;
             text-align: center;
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #ffeb3b;
-            text-shadow: 3px 3px #e91e63;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s, transform 0.3s;
-            z-index: 10;
         }
-        .pop { transform: scale(1.2); opacity: 1 !important; }
+
+        button {
+            padding: 15px 30px;
+            font-size: 20px;
+            font-family: 'Courier New', Courier, monospace;
+            background: #4a90e2;
+            color: white;
+            border: 4px solid #fff;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background: #357abd;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div id="score-display">0</div>
-    <div id="level-up">GETTING TOUGH! 🚀</div>
-
-    <div id="ui">
-        <div id="start-menu" class="menu-box">
-            <h1>🌴 Surfing Blooper 🦑</h1>
-            <p>Choose your Surfer!</p>
-            
-            <div class="char-grid">
-                <button class="char-btn selected" onclick="selectChar('original', this)"><img id="img-original" src=""></button>
-                <button class="char-btn" onclick="selectChar('mario', this)"><img id="img-mario" src=""></button>
-                <button class="char-btn" onclick="selectChar('red', this)"><img id="img-red" src=""></button>
-                <button class="char-btn" onclick="selectChar('luigi', this)"><img id="img-luigi" src=""></button>
-                <button class="char-btn" onclick="selectChar('pink_princess', this)"><img id="img-pink_princess" src=""></button>
-                <button class="char-btn" onclick="selectChar('teal_princess', this)"><img id="img-teal_princess" src=""></button>
-            </div>
-
-            <button class="start-btn" onclick="startGame()">PLAY!</button>
+    <div id="game-container">
+        <div id="ui">
+            <div>Level: <span id="level-val">1</span></div>
+            <div>Time: <span id="timer-val">30</span>s</div>
+            <div>Lumas Left: <span id="luma-val">0</span></div>
         </div>
-        
-        <div id="game-over-menu" class="menu-box" style="display: none;">
-            <h1>Wipe Out!</h1>
-            <p id="final-score">Score: 0</p>
-            <button class="start-btn" onclick="showStartMenu()">BACK TO MENU</button>
+
+        <div id="start-screen">
+            <h1>Rosalina's Luma Gathering</h1>
+            <p>Drag the floating Lumas back to Rosalina's throne!</p>
+            <button onclick="startGame()">START GAME</button>
         </div>
+
+        <div id="game-over" class="hidden">
+            <h1 id="over-title">Game Over!</h1>
+            <p id="over-msg">The stars drifted too far away.</p>
+            <button onclick="location.reload()">TRY AGAIN</button>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
     </div>
 
-    <canvas id="gameCanvas"></canvas>
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const levelDisplay = document.getElementById('level-val');
+    const timerDisplay = document.getElementById('timer-val');
+    const lumaDisplay = document.getElementById('luma-val');
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over');
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreElement = document.getElementById('score-display');
-        const levelUpElement = document.getElementById('level-up');
-        const startMenu = document.getElementById('start-menu');
-        const gameOverMenu = document.getElementById('game-over-menu');
-        const finalScoreText = document.getElementById('final-score');
+    // Game State
+    let level = 1;
+    let timeLeft = 30;
+    let lumas = [];
+    let isPlaying = false;
+    let draggedLuma = null;
+    let gameTimer = null;
+    let audioCtx = null;
 
-        let selectedCharacter = 'original';
+    // Config
+    const ROSALINA_SIZE = 60;
+    const LUMA_SIZE = 15;
 
-        // --- SETTINGS ---
-        let gravity = 0.15;
-        let jumpStrength = -4.5;
-        let basePipeSpeed = 1.8;
-        let currentPipeSpeed = 1.8;
-        let baseSpawnRate = 160;
-        let currentSpawnRate = 160;
-        let pipeGap = 260;
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
 
-        let blooper = { x: 0, y: 0, velocity: 0, width: 60, height: 60 };
-        let pipes = [];
-        let frameCount = 0;
-        let spawnTimer = 0;
-        let score = 0;
-        let gameRunning = false;
+    // --- AUDIO ENGINE (16-bit style) ---
+    function initAudio() {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
 
-        // --- MUSIC ENGINE ---
-        let audioCtx = null;
-        let musicLoop = null;
-        const melody = [
-            {note: 261.63, len: 0.2}, {note: 329.63, len: 0.2}, {note: 392.00, len: 0.2}, {note: 523.25, len: 0.4},
-            {note: 392.00, len: 0.2}, {note: 329.63, len: 0.2}, {note: 261.63, len: 0.4}, {note: 0, len: 0.2},
-            {note: 349.23, len: 0.2}, {note: 392.00, len: 0.2}, {note: 440.00, len: 0.2}, {note: 523.25, len: 0.4},
-            {note: 440.00, len: 0.2}, {note: 349.23, len: 0.2}, {note: 261.63, len: 0.6}
-        ];
-        let noteIndex = 0;
+    function playChime() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle'; 
+        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+        osc.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.1); // C6
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+    }
 
-        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-        function playNote(freq, duration, type = 'square', volume = 0.1) {
-            if (freq === 0) return;
+    function startMusic() {
+        const notes = [261.63, 329.63, 392.00, 523.25]; // C Major chord
+        let step = 0;
+        
+        setInterval(() => {
+            if(!isPlaying) return;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + duration);
-        }
-        function playMusic() {
-            if (!gameRunning) return;
-            const current = melody[noteIndex];
-            const level = Math.floor(score / 5);
-            let mainType = level >= 2 ? 'sawtooth' : 'square';
-            playNote(current.note, current.len, mainType, 0.07);
-            playNote(130.81, 0.4, 'triangle', 0.1);
-            if (level >= 1 && noteIndex % 2 === 0) playNote(150, 0.05, 'square', 0.05);
-            if (level >= 2 && current.note !== 0) playNote(current.note * 1.5, current.len, 'square', 0.04);
-            if (level >= 3 && noteIndex % 2 === 1) playNote(current.note * 2, 0.1, 'sawtooth', 0.03);
-            if (level >= 4 && noteIndex % 4 === 0) playNote(65.41, 0.4, 'sawtooth', 0.08);
-            noteIndex = (noteIndex + 1) % melody.length;
-            musicLoop = setTimeout(playMusic, current.len * 1000);
+            osc.type = 'square'; // Classic NES/SNES sound
+            osc.frequency.setValueAtTime(notes[step % notes.length], audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+            step++;
+        }, 500);
+    }
+
+    // --- GAME OBJECTS ---
+    class Luma {
+        constructor() {
+            this.x = Math.random() * (canvas.width - 100) + 50;
+            this.y = Math.random() * (canvas.height - 200) + 50;
+            this.baseX = this.x;
+            this.baseY = this.y;
+            this.offset = Math.random() * Math.PI * 2;
+            this.color = `hsl(${Math.random() * 60 + 40}, 100%, 70%)`;
         }
 
-        // --- DRAWING ENGINE (Separated for Menu and Game) ---
-        function renderChar(targetCtx, charKey, xOffset = 0, yOffset = 0) {
-            targetCtx.save();
-            targetCtx.translate(xOffset, yOffset);
-            
-            // Surfboard
-            targetCtx.fillStyle = '#ffeb3b'; targetCtx.strokeStyle = '#fbc02d'; targetCtx.lineWidth = 3;
-            targetCtx.beginPath(); targetCtx.ellipse(0, 15, 35, 12, 0, 0, Math.PI * 2); targetCtx.fill(); targetCtx.stroke();
-
-            if (charKey.includes('princess')) {
-                const dressColor = charKey === 'pink_princess' ? '#ff69b4' : '#40e0d0';
-                targetCtx.fillStyle = dressColor;
-                targetCtx.beginPath();
-                targetCtx.moveTo(-15, 10); targetCtx.lineTo(15, 10); targetCtx.lineTo(20, -10); targetCtx.lineTo(-20, -10);
-                targetCtx.closePath(); targetCtx.fill();
-                targetCtx.fillStyle = '#ffe4c4';
-                targetCtx.beginPath(); targetCtx.arc(0, -15, 12, 0, Math.PI * 2); targetCtx.fill();
-                targetCtx.fillStyle = '#ffd700';
-                targetCtx.beginPath(); targetCtx.arc(0, -18, 14, Math.PI, 0); targetCtx.fill();
-                targetCtx.fillRect(-14, -18, 5, 20); targetCtx.fillRect(9, -18, 5, 20);
-            } else {
-                let bodyColor = 'white';
-                if (charKey === 'red') bodyColor = '#ff4444';
-                if (charKey === 'luigi') bodyColor = '#4caf50';
-                targetCtx.fillStyle = bodyColor; targetCtx.strokeStyle = '#ddd';
-                targetCtx.beginPath(); targetCtx.ellipse(0, -5, 20, 25, 0, 0, Math.PI * 2); targetCtx.fill(); targetCtx.stroke();
-                targetCtx.beginPath();
-                for(let i = -15; i <= 15; i += 10) { targetCtx.moveTo(i, 10); targetCtx.quadraticCurveTo(i + 5, 20, i + 10, 10); }
-                targetCtx.stroke();
-                targetCtx.fillStyle = '#333';
-                targetCtx.beginPath(); targetCtx.ellipse(-8, -10, 10, 6, 0.2, 0, Math.PI * 2); targetCtx.ellipse(8, -10, 10, 6, -0.2, 0, Math.PI * 2); targetCtx.fill();
-                targetCtx.fillStyle = 'white'; targetCtx.beginPath(); targetCtx.arc(-8, -10, 5, 0, Math.PI * 2); targetCtx.arc(8, -10, 5, 0, Math.PI * 2); targetCtx.fill();
-                targetCtx.fillStyle = 'black'; targetCtx.beginPath(); targetCtx.arc(-8, -10, 3, 0, Math.PI * 2); targetCtx.arc(8, -10, 3, 0, Math.PI * 2); targetCtx.fill();
-                if (charKey === 'mario') {
-                    targetCtx.fillStyle = 'red'; targetCtx.beginPath(); targetCtx.arc(0, -25, 12, Math.PI, 0); targetCtx.fill();
-                    targetCtx.fillStyle = 'white'; targetCtx.beginPath(); targetCtx.arc(0, -28, 5, 0, Math.PI * 2); targetCtx.fill();
-                    targetCtx.fillStyle = 'red'; targetCtx.font = 'bold 8px Arial'; targetCtx.textAlign = 'center'; targetCtx.fillText('M', 0, -27);
-                }
-                if (charKey === 'luigi') {
-                    targetCtx.fillStyle = '#4caf50'; targetCtx.beginPath(); targetCtx.arc(0, -25, 12, Math.PI, 0); targetCtx.fill();
-                    targetCtx.fillStyle = 'white'; targetCtx.beginPath(); targetCtx.arc(0, -28, 5, 0, Math.PI * 2); targetCtx.fill();
-                    targetCtx.fillStyle = '#4caf50'; targetCtx.font = 'bold 8px Arial'; targetCtx.textAlign = 'center'; targetCtx.fillText('L', 0, -27);
-                }
+        update() {
+            if (this !== draggedLuma) {
+                // Floating movement
+                this.x = this.baseX + Math.sin(Date.now() / 1000 + this.offset) * 20;
+                this.y = this.baseY + Math.cos(Date.now() / 1000 + this.offset) * 20;
             }
-            targetCtx.restore();
         }
 
-        // --- GENERATE MENU IMAGES ---
-        function generateMenuImages() {
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 100;
-            tempCanvas.height = 100;
-            const tCtx = tempCanvas.getContext('2d');
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, LUMA_SIZE, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = this.color;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // Little eyes
+            ctx.fillStyle = "black";
+            ctx.fillRect(this.x - 4, this.y - 4, 2, 2);
+            ctx.fillRect(this.x + 2, this.y - 4, 2, 2);
+        }
+    }
 
-            const chars = ['original', 'mario', 'red', 'luigi', 'pink_princess', 'teal_princess'];
-            chars.forEach(char => {
-                tCtx.clearRect(0, 0, 100, 100);
-                renderChar(tCtx, char, 50, 50);
-                document.getElementById(`img-${char}`).src = tempCanvas.toDataURL();
+    function drawRosalina() {
+        const rx = canvas.width - 100;
+        const ry = canvas.height - 100;
+
+        // Throne
+        ctx.fillStyle = "#ffd700";
+        ctx.fillRect(rx - 40, ry, 80, 40);
+        ctx.fillRect(rx - 30, ry - 40, 60, 40);
+
+        // Rosalina (Simple 16-bit representation)
+        // Dress
+        ctx.fillStyle = "#4a90e2";
+        ctx.beginPath();
+        ctx.moveTo(rx, ry - 20);
+        ctx.lineTo(rx - 20, ry);
+        ctx.lineTo(rx + 20, ry);
+        ctx.fill();
+
+        // Head
+        ctx.fillStyle = "#ffe0bd";
+        ctx.beginPath();
+        ctx.arc(rx, ry - 30, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hair (Platinum blonde)
+        ctx.fillStyle = "#fdf5e6";
+        ctx.beginPath();
+        ctx.arc(rx, ry - 35, 14, Math.PI, 0);
+        ctx.fill();
+        ctx.fillRect(rx + 10, ry - 35, 8, 20);
+
+        // Crown
+        ctx.fillStyle = "gold";
+        ctx.fillRect(rx - 5, ry - 45, 10, 5);
+    }
+
+    // --- CORE LOGIC ---
+    function spawnLumas() {
+        lumas = [];
+        const count = 5 + (level * 3);
+        for (let i = 0; i < count; i++) {
+            lumas.push(new Luma());
+        }
+        lumaDisplay.innerText = lumas.length;
+    }
+
+    function startGame() {
+        initAudio();
+        startMusic();
+        startScreen.classList.add('hidden');
+        isPlaying = true;
+        level = 1;
+        startLevel();
+    }
+
+    function startLevel() {
+        timeLeft = Math.max(10, 30 - (level * 2));
+        levelDisplay.innerText = level;
+        timerDisplay.innerText = timeLeft;
+        spawnLumas();
+
+        if(gameTimer) clearInterval(gameTimer);
+        gameTimer = setInterval(() => {
+            timeLeft--;
+            timerDisplay.innerText = timeLeft;
+            if (timeLeft <= 0) endGame(false);
+        }, 1000);
+    }
+
+    function endGame(win) {
+        isPlaying = false;
+        clearInterval(gameTimer);
+        gameOverScreen.classList.remove('hidden');
+        document.getElementById('over-title').innerText = win ? "You Won!" : "Game Over!";
+        document.getElementById('over-msg').innerText = win ? "All Lumas are safe!" : "Time ran out!";
+    }
+
+    // --- INPUT ---
+    canvas.addEventListener('mousedown', (e) => {
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
+        lumas.forEach(luma => {
+            const dist = Math.hypot(luma.x - mouseX, luma.y - mouseY);
+            if (dist < LUMA_SIZE * 2) draggedLuma = luma;
+        });
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (draggedLuma) {
+            draggedLuma.x = e.clientX;
+            draggedLuma.y = e.clientY;
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        draggedLuma = null;
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        const mouseX = touch.clientX;
+        const mouseY = touch.clientY;
+        lumas.forEach(luma => {
+            const dist = Math.hypot(luma.x - mouseX, luma.y - mouseY);
+            if (dist < LUMA_SIZE * 2) draggedLuma = luma;
+        });
+    });
+    window.addEventListener('touchmove', (e) => {
+        if (draggedLuma) {
+            const touch = e.touches[0];
+            draggedLuma.x = touch.clientX;
+            draggedLuma.y = touch.clientY;
+        }
+    });
+    window.addEventListener('touchend', () => { draggedLuma = null; });
+
+    // --- GAME LOOP ---
+    function loop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawRosalina();
+
+        if (isPlaying) {
+            lumas.forEach((luma, index) => {
+                luma.update();
+                luma.draw();
+
+                // Check if Luma reached Rosalina
+                const rx = canvas.width - 100;
+                const ry = canvas.height - 100;
+                const dist = Math.hypot(luma.x - rx, luma.y - ry);
+
+                if (dist < 50) {
+                    playChime();
+                    lumas.splice(index, 1);
+                    lumaDisplay.innerText = lumas.length;
+                    
+                    if (lumas.length === 0) {
+                        level++;
+                        startLevel();
+                    }
+                }
             });
         }
 
-        function selectChar(char, btn) {
-            selectedCharacter = char;
-            document.querySelectorAll('.char-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
+        requestAnimationFrame(loop);
+    }
+
+    // Create Background Stars
+    function createStars() {
+        const container = document.getElementById('game-container');
+        for (let i = 0; i < 100; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            const size = Math.random() * 3;
+            star.style.width = size + 'px';
+            star.style.height = size + 'px';
+            star.style.left = Math.random() * 100 + 'vw';
+            star.style.top = Math.random() * 100 + 'vh';
+            star.style.setProperty('--duration', (Math.random() * 3 + 2) + 's');
+            container.appendChild(star);
         }
+    }
 
-        function showStartMenu() {
-            gameOverMenu.style.display = 'none';
-            startMenu.style.display = 'block';
-        }
-
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            blooper.x = canvas.width * 0.2;
-            blooper.y = canvas.height / 2;
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        function startGame() {
-            initAudio();
-            blooper.y = canvas.height / 2;
-            blooper.velocity = 0;
-            pipes = [];
-            score = 0;
-            currentPipeSpeed = basePipeSpeed;
-            currentSpawnRate = baseSpawnRate; 
-            frameCount = 0;
-            spawnTimer = 0;
-            gameRunning = true;
-            startMenu.style.display = 'none';
-            gameOverMenu.style.display = 'none';
-            scoreElement.style.display = 'block';
-            scoreElement.innerText = '0';
-            playMusic();
-            requestAnimationFrame(gameLoop);
-        }
-
-        function gameOver() {
-            gameRunning = false;
-            clearTimeout(musicLoop);
-            gameOverMenu.style.display = 'block';
-            finalScoreText.innerText = `You got ${score} points!`;
-            scoreElement.style.display = 'none';
-        }
-
-        function jump() { if (gameRunning) blooper.velocity = jumpStrength; }
-        window.addEventListener('touchstart', (e) => { if (e.target.tagName !== 'BUTTON') { e.preventDefault(); jump(); } }, { passive: false });
-        window.addEventListener('mousedown', (e) => { if (e.target.tagName !== 'BUTTON') jump(); });
-        window.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); } });
-
-        function gameLoop() {
-            if (!gameRunning) return;
-            frameCount++;
-            
-            const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            skyGrad.addColorStop(0, '#81d4fa'); skyGrad.addColorStop(0.5, '#4fc3f7');
-            ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#ffe082'; ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            for (let i = 0; i < 3; i++) {
-                ctx.beginPath();
-                const offset = i * 50; const speed = (i + 1) * 0.02;
-                ctx.moveTo(0, canvas.height - 80 - offset);
-                for (let x = 0; x <= canvas.width; x += 10) {
-                    const y = Math.sin(x * 0.01 + frameCount * speed) * 15;
-                    ctx.lineTo(x, canvas.height - 80 - offset + y);
-                }
-                ctx.lineTo(canvas.width, canvas.height); ctx.lineTo(0, canvas.height); ctx.fill();
-            }
-
-            blooper.velocity += gravity;
-            blooper.y += blooper.velocity;
-            if (blooper.y + blooper.height > canvas.height || blooper.y < 0) gameOver();
-
-            spawnTimer++;
-            if (spawnTimer >= currentSpawnRate) {
-                const minH = 80; const maxH = canvas.height - pipeGap - minH;
-                const h = Math.floor(Math.random() * (maxH - minH + 1)) + minH;
-                pipes.push({ x: canvas.width, top: h, bottom: canvas.height - h - pipeGap, passed: false });
-                spawnTimer = 0;
-            }
-
-            for (let i = pipes.length - 1; i >= 0; i--) {
-                let p = pipes[i];
-                p.x -= currentPipeSpeed;
-                ctx.fillStyle = '#8d6e63'; ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 5;
-                ctx.beginPath(); ctx.roundRect(p.x + 15, 0, 30, p.top, [0, 0, 10, 10]); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = '#4caf50'; ctx.beginPath(); ctx.arc(p.x + 30, p.top, 40, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#8d6e63'; ctx.beginPath(); ctx.roundRect(p.x + 15, canvas.height - p.bottom, 30, p.bottom, [10, 10, 0, 0]); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = '#4caf50'; ctx.beginPath(); ctx.arc(p.x + 30, canvas.height - p.bottom, 40, 0, Math.PI * 2); ctx.fill();
-
-                if (blooper.x + 15 < p.x + 45 && blooper.x + blooper.width - 15 > p.x + 15 && (blooper.y + 15 < p.top || blooper.y + blooper.height - 15 > canvas.height - p.bottom)) gameOver();
-                if (!p.passed && p.x + 60 < blooper.x) {
-                    score++; p.passed = true; scoreElement.innerText = score;
-                    if (score % 5 === 0) { currentPipeSpeed += 0.2; currentSpawnRate = Math.max(80, currentSpawnRate - 15); levelUpElement.classList.add('pop'); setTimeout(() => levelUpElement.classList.remove('pop'), 1000); }
-                }
-                if (p.x < -100) pipes.splice(i, 1);
-            }
-            
-            // Draw Blooper with rotation in game loop
-            ctx.save();
-            ctx.translate(blooper.x + blooper.width/2, blooper.y + blooper.height/2);
-            let rotation = Math.min(Math.PI / 6, Math.max(-Math.PI / 6, blooper.velocity * 0.1));
-            ctx.rotate(rotation);
-            renderChar(ctx, selectedCharacter, 0, 0);
-            ctx.restore();
-            
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Start image generation immediately
-        window.onload = generateMenuImages;
-    </script>
+    createStars();
+    loop();
+</script>
 </body>
 </html>
+
+							<script>
+                            	
+							</script>
+                        </body>
+                        </html>
+                    
