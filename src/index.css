@@ -1,0 +1,12 @@
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #00b4db;
+  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial', sans-serif;
+  touch-action: none;
+}
+
+canvas {
+  display: block;
+}

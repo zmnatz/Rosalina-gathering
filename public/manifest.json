@@ -1,0 +1,16 @@
+{
+  "name": "Rosalina's Gathering",
+  "short_name": "Rosalina",
+  "description": "A fun gathering game for kids",
+  "display": "standalone",
+  "theme_color": "#00b4db",
+  "background_color": "#00b4db",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
