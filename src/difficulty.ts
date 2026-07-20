@@ -17,13 +17,3 @@ export function getLevelConfig(level: number): LevelConfig {
     lumaCount: BASE_LUMA_COUNT + level * LUMA_COUNT_PER_LEVEL,
   }
 }
-
-export interface TimerTickResult {
-  timeLeft: number
-  expired: boolean
-}
-
-export function tickTimer(timeLeft: number): TimerTickResult {
-  const next = timeLeft - 1
-  return { timeLeft: next, expired: next <= 0 }
-}

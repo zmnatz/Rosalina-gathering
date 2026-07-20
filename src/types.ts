@@ -7,11 +7,3 @@ export interface Luma {
   offset: number
   hue: number
 }
-
-export interface GameState {
-  level: number
-  timeLeft: number
-  lumas: Luma[]
-  gameRunning: boolean
-  screen: 'menu' | 'playing' | 'gameover'
-}

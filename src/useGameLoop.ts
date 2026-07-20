@@ -1,10 +1,8 @@
 import { useRef, useEffect, useCallback } from 'react'
-import type { Luma } from './types'
-import { CATCH_RADIUS, LUMA_SIZE } from './constants'
-import { computeDrift } from './physics'
-import { isCaught, findLumaAt } from './collision'
-import { spawnLumas } from './luma-spawner'
-import { getLevelConfig, tickTimer } from './difficulty'
+import { LUMA_SIZE } from './constants'
+import { findLumaAt } from './collision'
+import { startLevel, stepGame } from './engine'
+import type { EngineState } from './engine'
 import { drawBackground, drawRosalina, drawLuma, createStars } from './renderer'
 import type { Star } from './renderer'
 
@@ -22,6 +20,14 @@ export interface GameLoopCallbacks {
 
 const PICK_RADIUS = LUMA_SIZE * 2
 
+function hudFromEngine(engine: EngineState): HudState {
+  return {
+    level: engine.level,
+    timeLeft: Math.max(0, Math.ceil(engine.timeLeft)),
+    lumasLeft: engine.lumas.length,
+  }
+}
+
 export function useGameLoop(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   callbacks: GameLoopCallbacks,
@@ -30,47 +36,39 @@ export function useGameLoop(
   callbacksRef.current = callbacks
 
   const stateRef = useRef({
-    level: 1,
-    timeLeft: 30,
-    lumas: [] as Luma[],
+    engine: null as EngineState | null,
     running: false,
     rafId: 0,
-    draggedId: null as number | null,
     stars: [] as Star[],
+    lastHud: null as HudState | null,
   })
   const startTimeRef = useRef(0)
 
-  const emitHud = useCallback(() => {
+  const emitHud = useCallback((engine: EngineState) => {
     const s = stateRef.current
-    callbacksRef.current.onHudChange({
-      level: s.level,
-      timeLeft: Math.max(0, s.timeLeft),
-      lumasLeft: s.lumas.length,
-    })
+    const next = hudFromEngine(engine)
+    const prev = s.lastHud
+    if (
+      prev &&
+      prev.level === next.level &&
+      prev.timeLeft === next.timeLeft &&
+      prev.lumasLeft === next.lumasLeft
+    ) {
+      return
+    }
+    s.lastHud = next
+    callbacksRef.current.onHudChange(next)
   }, [])
-
-  const startLevel = useCallback(
-    (level: number) => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const s = stateRef.current
-      const { timeLeft, lumaCount } = getLevelConfig(level)
-      s.level = level
-      s.timeLeft = timeLeft
-      s.lumas = spawnLumas(lumaCount, canvas.width, canvas.height)
-      s.draggedId = null
-      emitHud()
-    },
-    [canvasRef, emitHud],
-  )
 
   const start = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const s = stateRef.current
+    const elapsed = (performance.now() - startTimeRef.current) / 1000
     s.running = true
-    startLevel(1)
-  }, [canvasRef, startLevel])
+    s.engine = startLevel(1, elapsed, canvas.width, canvas.height)
+    emitHud(s.engine)
+  }, [canvasRef, emitHud])
 
   const stop = useCallback(() => {
     stateRef.current.running = false
@@ -78,15 +76,16 @@ export function useGameLoop(
 
   const pointerDown = useCallback((x: number, y: number) => {
     const s = stateRef.current
-    if (!s.running) return
-    const luma = findLumaAt(s.lumas, x, y, PICK_RADIUS)
-    if (luma) s.draggedId = luma.id
+    const engine = s.engine
+    if (!s.running || !engine) return
+    const luma = findLumaAt(engine.lumas, x, y, PICK_RADIUS)
+    if (luma) engine.draggedId = luma.id
   }, [])
 
   const pointerMove = useCallback((x: number, y: number) => {
-    const s = stateRef.current
-    if (s.draggedId === null) return
-    const luma = s.lumas.find((l) => l.id === s.draggedId)
+    const engine = stateRef.current.engine
+    if (!engine || engine.draggedId === null) return
+    const luma = engine.lumas.find((l) => l.id === engine.draggedId)
     if (luma) {
       luma.x = x
       luma.y = y
@@ -94,7 +93,8 @@ export function useGameLoop(
   }, [])
 
   const pointerUp = useCallback(() => {
-    stateRef.current.draggedId = null
+    const engine = stateRef.current.engine
+    if (engine) engine.draggedId = null
   }, [])
 
   // canvas sizing + idle starfield
@@ -134,23 +134,7 @@ export function useGameLoop(
     }
   }, [pointerMove, pointerUp])
 
-  // level timer
-  useEffect(() => {
-    const id = setInterval(() => {
-      const s = stateRef.current
-      if (!s.running) return
-      const result = tickTimer(s.timeLeft)
-      s.timeLeft = result.timeLeft
-      emitHud()
-      if (result.expired) {
-        s.running = false
-        callbacksRef.current.onGameOver()
-      }
-    }, 1000)
-    return () => clearInterval(id)
-  }, [emitHud])
-
-  // render/update loop
+  // render/simulate loop
   useEffect(() => {
     const canvas = canvasRef.current!
     const ctx = canvas.getContext('2d')!
@@ -169,35 +153,21 @@ export function useGameLoop(
       drawBackground(ctx, w, h, s.stars, elapsed)
       drawRosalina(ctx, cx, cy)
 
-      if (s.running) {
-        for (const luma of s.lumas) {
-          if (luma.id !== s.draggedId) {
-            const { x, y } = computeDrift(
-              luma.baseX,
-              luma.baseY,
-              luma.offset,
-              elapsed,
-            )
-            luma.x = x
-            luma.y = y
-          }
-          drawLuma(ctx, luma)
+      if (s.running && s.engine) {
+        const result = stepGame(s.engine, elapsed, w, h)
+        s.engine = result.state
+
+        for (const luma of s.engine.lumas) drawLuma(ctx, luma)
+
+        for (const hue of result.events.caughtHues) {
+          callbacksRef.current.onCatch(hue)
         }
 
-        const caught = s.lumas.filter((l) => isCaught(l, cx, cy, CATCH_RADIUS))
-        if (caught.length > 0) {
-          for (const luma of caught) callbacksRef.current.onCatch(luma.hue)
-          const caughtIds = new Set(caught.map((l) => l.id))
-          s.lumas = s.lumas.filter((l) => !caughtIds.has(l.id))
-          if (s.draggedId !== null && caughtIds.has(s.draggedId)) {
-            s.draggedId = null
-          }
-
-          if (s.lumas.length === 0) {
-            startLevel(s.level + 1)
-          } else {
-            emitHud()
-          }
+        if (result.events.gameOver) {
+          s.running = false
+          callbacksRef.current.onGameOver()
+        } else {
+          emitHud(s.engine)
         }
       }
 
@@ -210,7 +180,7 @@ export function useGameLoop(
       alive = false
       cancelAnimationFrame(s.rafId)
     }
-  }, [canvasRef, startLevel, emitHud])
+  }, [canvasRef, emitHud])
 
   return { pointerDown, start, stop }
 }
