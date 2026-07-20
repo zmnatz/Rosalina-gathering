@@ -1,17 +1,14 @@
-import { BLOOPER_HEIGHT } from './constants'
+import { DRIFT_RADIUS } from './constants'
 
-export function applyGravity(velocity: number, gravity: number): number {
-  return velocity + gravity
-}
-
-export function updatePosition(y: number, velocity: number): number {
-  return y + velocity
-}
-
-export function isOutOfBounds(
-  y: number,
-  canvasH: number,
-  blooperH: number = BLOOPER_HEIGHT,
-): boolean {
-  return y + blooperH > canvasH || y < 0
+export function computeDrift(
+  baseX: number,
+  baseY: number,
+  offset: number,
+  elapsedSeconds: number,
+  radius: number = DRIFT_RADIUS,
+): { x: number; y: number } {
+  return {
+    x: baseX + Math.sin(elapsedSeconds + offset) * radius,
+    y: baseY + Math.cos(elapsedSeconds + offset) * radius,
+  }
 }

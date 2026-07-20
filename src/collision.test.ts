@@ -1,64 +1,55 @@
 import { describe, it, expect } from 'vitest'
-import { checkPipeCollision, type BlooperConfig } from './collision'
-import type { Pipe } from './types'
+import { distance, isCaught, findLumaAt } from './collision'
+import type { Luma } from './types'
 
-const config: BlooperConfig = { width: 60, height: 60 }
-const canvasH = 800
-
-function pipe(overrides: Partial<Pipe> = {}): Pipe {
-  return { x: 400, top: 200, bottom: 600, passed: false, ...overrides }
+function luma(overrides: Partial<Luma> = {}): Luma {
+  return {
+    id: 0,
+    x: 0,
+    y: 0,
+    baseX: 0,
+    baseY: 0,
+    offset: 0,
+    hue: 0,
+    ...overrides,
+  }
 }
 
-describe('checkPipeCollision', () => {
-  it('returns false when blooper is centered in the gap', () => {
-    expect(checkPipeCollision(400, pipe(), canvasH, config)).toBe(false)
+describe('distance', () => {
+  it('computes euclidean distance', () => {
+    expect(distance(0, 0, 3, 4)).toBe(5)
+  })
+})
+
+describe('isCaught', () => {
+  it('returns true when the luma is within the catch radius', () => {
+    expect(isCaught(luma({ x: 10, y: 0 }), 0, 0, 60)).toBe(true)
   })
 
-  it('returns false when blooper is at the gap center with pipe far ahead', () => {
-    expect(checkPipeCollision(400, pipe({ x: 800 }), canvasH, config)).toBe(
-      false,
-    )
+  it('returns false when the luma is outside the catch radius', () => {
+    expect(isCaught(luma({ x: 100, y: 0 }), 0, 0, 60)).toBe(false)
   })
 
-  it('returns false when blooper is at the gap center with pipe far behind', () => {
-    expect(checkPipeCollision(400, pipe({ x: -200 }), canvasH, config)).toBe(
-      false,
-    )
+  it('returns false at exactly the boundary', () => {
+    expect(isCaught(luma({ x: 60, y: 0 }), 0, 0, 60)).toBe(false)
+  })
+})
+
+describe('findLumaAt', () => {
+  it('returns the luma within pick radius of a point', () => {
+    const target = luma({ id: 1, x: 50, y: 50 })
+    const lumas = [luma({ id: 0, x: 500, y: 500 }), target]
+    expect(findLumaAt(lumas, 55, 55, 40)).toBe(target)
   })
 
-  it('returns true when blooper top edge overlaps top pipe', () => {
-    const p = pipe({ x: 0, top: 190 })
-    expect(checkPipeCollision(170, p, canvasH, config)).toBe(true)
+  it('returns null when no luma is within range', () => {
+    const lumas = [luma({ x: 500, y: 500 })]
+    expect(findLumaAt(lumas, 0, 0, 40)).toBeNull()
   })
 
-  it('returns true when blooper bottom edge overlaps bottom pipe', () => {
-    const p = pipe({ x: 0, top: 300, bottom: 500 })
-    expect(checkPipeCollision(650, p, canvasH, config)).toBe(true)
-  })
-
-  it('returns false when blooper is above both pipes (before enter gap)', () => {
-    expect(checkPipeCollision(50, pipe(), canvasH, config)).toBe(false)
-  })
-
-  it('returns false when blooper is below both pipes (past exit)', () => {
-    expect(
-      checkPipeCollision(750, pipe({ top: 300, bottom: 500 }), canvasH, config),
-    ).toBe(false)
-  })
-
-  it('returns false when blooper is beyond pipe horizontally (past right edge)', () => {
-    expect(
-      checkPipeCollision(400, pipe({ x: 300, top: 100 }), canvasH, config),
-    ).toBe(false)
-  })
-
-  it('returns true at exact pipe lip top', () => {
-    const p = pipe({ x: 0, top: 175 })
-    expect(checkPipeCollision(160, p, canvasH, config)).toBe(true)
-  })
-
-  it('returns true at exact pipe lip bottom', () => {
-    const p = pipe({ x: 0, top: 200, bottom: 595 })
-    expect(checkPipeCollision(620, p, canvasH, config)).toBe(true)
+  it('returns the first matching luma when multiple overlap', () => {
+    const first = luma({ id: 0, x: 10, y: 10 })
+    const second = luma({ id: 1, x: 12, y: 12 })
+    expect(findLumaAt([first, second], 10, 10, 40)).toBe(first)
   })
 })

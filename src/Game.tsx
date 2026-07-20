@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
-import type { Character } from './types'
 import { useGameLoop } from './useGameLoop'
+import type { HudState } from './useGameLoop'
 import { useAudio } from './useAudio'
 import MenuScreen from './MenuScreen'
 import GameOverScreen from './GameOverScreen'
@@ -9,72 +9,68 @@ import HUD from './HUD'
 export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [screen, setScreen] = useState<'menu' | 'playing' | 'gameover'>('menu')
-  const [selectedChar, setSelectedChar] = useState<Character>('original')
-  const [score, setScore] = useState(0)
-  const [levelUp, setLevelUp] = useState(false)
+  const [hud, setHud] = useState<HudState>({ level: 1, timeLeft: 30, lumasLeft: 0 })
   const audio = useAudio()
 
   const callbacks = useCallback(
     () => ({
-      onScoreChange(s: number) {
-        setScore(s)
+      onHudChange(next: HudState) {
+        setHud(next)
       },
-      onGameOver(s: number) {
-        setScore(s)
+      onCatch(hue: number) {
+        audio.playChime(hue)
+      },
+      onGameOver() {
         setScreen('gameover')
         audio.stop()
-      },
-      onLevelUp(level: number) {
-        audio.setLevel(level)
-        setLevelUp(true)
-        setTimeout(() => setLevelUp(false), 1000)
       },
     }),
     [audio],
   )
 
-  const { jump, start } = useGameLoop(canvasRef, selectedChar, callbacks())
+  const { pointerDown, start } = useGameLoop(canvasRef, callbacks())
 
   const handleStart = useCallback(() => {
     audio.init()
-    setScore(0)
     setScreen('playing')
     start()
     audio.start()
   }, [audio, start])
 
-  const handleJump = useCallback(
+  const handlePointerDown = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
-      if (e.target instanceof HTMLElement && e.target.tagName === 'BUTTON')
+      if (e.target instanceof HTMLElement && e.target.tagName === 'BUTTON') {
         return
-      jump()
+      }
+      if ('touches' in e) {
+        const touch = e.touches[0]
+        if (touch) pointerDown(touch.clientX, touch.clientY)
+      } else {
+        pointerDown(e.clientX, e.clientY)
+      }
     },
-    [jump],
+    [pointerDown],
   )
 
   return (
     <div
       style={{ position: 'relative', width: '100%', height: '100vh' }}
-      onMouseDown={handleJump}
-      onTouchStart={handleJump}
+      onMouseDown={handlePointerDown}
+      onTouchStart={handlePointerDown}
     >
       <canvas ref={canvasRef} style={{ display: 'block' }} />
 
-      <HUD score={score} levelUp={levelUp} visible={screen === 'playing'} />
+      <HUD
+        level={hud.level}
+        timeLeft={hud.timeLeft}
+        lumasLeft={hud.lumasLeft}
+        visible={screen === 'playing'}
+      />
 
-      {screen === 'menu' && (
-        <MenuScreen
-          selectedChar={selectedChar}
-          onSelectChar={setSelectedChar}
-          onStart={handleStart}
-        />
-      )}
+      {screen === 'menu' && <MenuScreen onStart={handleStart} />}
 
       {screen === 'gameover' && (
-        <GameOverScreen
-          score={score}
-          onBackToMenu={() => setScreen('menu')}
-        />
+        <GameOverScreen onBackToMenu={() => setScreen('menu')} />
       )}
     </div>
   )

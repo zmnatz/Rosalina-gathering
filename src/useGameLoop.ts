@@ -1,77 +1,109 @@
 import { useRef, useEffect, useCallback } from 'react'
-import type { Pipe, Character } from './types'
-import {
-  GRAVITY,
-  JUMP_STRENGTH,
-  BASE_PIPE_SPEED,
-  BASE_SPAWN_RATE,
-  BLOOPER_WIDTH,
-  BLOOPER_HEIGHT,
-} from './constants'
-import { applyGravity, updatePosition, isOutOfBounds } from './physics'
-import { checkPipeCollision } from './collision'
-import { spawnPipe, movePipes, removeOffscreen } from './pipe-manager'
-import { tickScore } from './difficulty'
-import { renderChar, drawBackground, drawPipes } from './renderer'
+import type { Luma } from './types'
+import { CATCH_RADIUS, LUMA_SIZE } from './constants'
+import { computeDrift } from './physics'
+import { isCaught, findLumaAt } from './collision'
+import { spawnLumas } from './luma-spawner'
+import { getLevelConfig, tickTimer } from './difficulty'
+import { drawBackground, drawRosalina, drawLuma, createStars } from './renderer'
+import type { Star } from './renderer'
 
-export interface GameLoopCallbacks {
-  onScoreChange: (score: number) => void
-  onGameOver: (score: number) => void
-  onLevelUp: (level: number) => void
+export interface HudState {
+  level: number
+  timeLeft: number
+  lumasLeft: number
 }
 
-const blooperConfig = { width: BLOOPER_WIDTH, height: BLOOPER_HEIGHT }
+export interface GameLoopCallbacks {
+  onHudChange: (hud: HudState) => void
+  onCatch: (hue: number) => void
+  onGameOver: () => void
+}
+
+const PICK_RADIUS = LUMA_SIZE * 2
 
 export function useGameLoop(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  selectedCharacter: Character,
   callbacks: GameLoopCallbacks,
 ) {
   const callbacksRef = useRef(callbacks)
   callbacksRef.current = callbacks
 
   const stateRef = useRef({
-    y: 0,
-    velocity: 0,
-    pipes: [] as Pipe[],
-    score: 0,
-    frameCount: 0,
-    spawnTimer: 0,
-    pipeSpeed: BASE_PIPE_SPEED,
-    spawnRate: BASE_SPAWN_RATE,
+    level: 1,
+    timeLeft: 30,
+    lumas: [] as Luma[],
     running: false,
     rafId: 0,
+    draggedId: null as number | null,
+    stars: [] as Star[],
   })
+  const startTimeRef = useRef(0)
 
-  const jump = useCallback(() => {
-    if (stateRef.current.running) stateRef.current.velocity = JUMP_STRENGTH
+  const emitHud = useCallback(() => {
+    const s = stateRef.current
+    callbacksRef.current.onHudChange({
+      level: s.level,
+      timeLeft: Math.max(0, s.timeLeft),
+      lumasLeft: s.lumas.length,
+    })
   }, [])
+
+  const startLevel = useCallback(
+    (level: number) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const s = stateRef.current
+      const { timeLeft, lumaCount } = getLevelConfig(level)
+      s.level = level
+      s.timeLeft = timeLeft
+      s.lumas = spawnLumas(lumaCount, canvas.width, canvas.height)
+      s.draggedId = null
+      emitHud()
+    },
+    [canvasRef, emitHud],
+  )
 
   const start = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const s = stateRef.current
-    s.y = canvas.height / 2
-    s.velocity = 0
-    s.pipes = []
-    s.score = 0
-    s.pipeSpeed = BASE_PIPE_SPEED
-    s.spawnRate = BASE_SPAWN_RATE
-    s.frameCount = 0
-    s.spawnTimer = 0
     s.running = true
-    callbacksRef.current.onScoreChange(0)
-  }, [canvasRef])
+    startLevel(1)
+  }, [canvasRef, startLevel])
 
   const stop = useCallback(() => {
     stateRef.current.running = false
-    cancelAnimationFrame(stateRef.current.rafId)
   }, [])
 
+  const pointerDown = useCallback((x: number, y: number) => {
+    const s = stateRef.current
+    if (!s.running) return
+    const luma = findLumaAt(s.lumas, x, y, PICK_RADIUS)
+    if (luma) s.draggedId = luma.id
+  }, [])
+
+  const pointerMove = useCallback((x: number, y: number) => {
+    const s = stateRef.current
+    if (s.draggedId === null) return
+    const luma = s.lumas.find((l) => l.id === s.draggedId)
+    if (luma) {
+      luma.x = x
+      luma.y = y
+    }
+  }, [])
+
+  const pointerUp = useCallback(() => {
+    stateRef.current.draggedId = null
+  }, [])
+
+  // canvas sizing + idle starfield
   useEffect(() => {
     const canvas = canvasRef.current!
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
+    stateRef.current.stars = createStars(canvas.width, canvas.height)
+    startTimeRef.current = performance.now()
 
     function onResize() {
       canvas.width = window.innerWidth
@@ -81,92 +113,104 @@ export function useGameLoop(
     return () => window.removeEventListener('resize', onResize)
   }, [canvasRef])
 
+  // global drag move/release listeners
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      pointerMove(e.clientX, e.clientY)
+    }
+    function onTouchMove(e: TouchEvent) {
+      const t = e.touches[0]
+      if (t) pointerMove(t.clientX, t.clientY)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', pointerUp)
+    window.addEventListener('touchmove', onTouchMove)
+    window.addEventListener('touchend', pointerUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', pointerUp)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', pointerUp)
+    }
+  }, [pointerMove, pointerUp])
+
+  // level timer
+  useEffect(() => {
+    const id = setInterval(() => {
+      const s = stateRef.current
+      if (!s.running) return
+      const result = tickTimer(s.timeLeft)
+      s.timeLeft = result.timeLeft
+      emitHud()
+      if (result.expired) {
+        s.running = false
+        callbacksRef.current.onGameOver()
+      }
+    }, 1000)
+    return () => clearInterval(id)
+  }, [emitHud])
+
+  // render/update loop
   useEffect(() => {
     const canvas = canvasRef.current!
-    const ctx = canvas!.getContext('2d')!
-
-    let prevLevel = 0
-    let running = true
+    const ctx = canvas.getContext('2d')!
+    const s = stateRef.current
+    let alive = true
 
     function loop() {
-      const s = stateRef.current
-      if (!s.running || !running) return
-      s.frameCount++
+      if (!alive) return
 
       const w = canvas.width
       const h = canvas.height
-      const cb = callbacksRef.current
+      const cx = w / 2
+      const cy = h / 2
+      const elapsed = (performance.now() - startTimeRef.current) / 1000
 
-      drawBackground(ctx, w, h, s.frameCount)
+      drawBackground(ctx, w, h, s.stars, elapsed)
+      drawRosalina(ctx, cx, cy)
 
-      s.velocity = applyGravity(s.velocity, GRAVITY)
-      s.y = updatePosition(s.y, s.velocity)
-
-      if (isOutOfBounds(s.y, h)) {
-        s.running = false
-        cb.onGameOver(s.score)
-        return
-      }
-
-      s.spawnTimer++
-      if (s.spawnTimer >= s.spawnRate) {
-        s.pipes.push(spawnPipe(h))
-        s.spawnTimer = 0
-      }
-
-      s.pipes = movePipes(s.pipes, s.pipeSpeed)
-
-      for (const p of s.pipes) {
-        if (checkPipeCollision(s.y, p, h, blooperConfig)) {
-          s.running = false
-          cb.onGameOver(s.score)
-          return
+      if (s.running) {
+        for (const luma of s.lumas) {
+          if (luma.id !== s.draggedId) {
+            const { x, y } = computeDrift(
+              luma.baseX,
+              luma.baseY,
+              luma.offset,
+              elapsed,
+            )
+            luma.x = x
+            luma.y = y
+          }
+          drawLuma(ctx, luma)
         }
 
-        if (!p.passed && p.x + 60 < BLOOPER_WIDTH * 0.2) {
-          const result = tickScore({
-            score: s.score,
-            pipeSpeed: s.pipeSpeed,
-            spawnRate: s.spawnRate,
-          })
-          s.score = result.score
-          s.pipeSpeed = result.pipeSpeed
-          s.spawnRate = result.spawnRate
-          p.passed = true
-          cb.onScoreChange(s.score)
-          if (result.levelUp) {
-            prevLevel++
-            cb.onLevelUp(prevLevel)
+        const caught = s.lumas.filter((l) => isCaught(l, cx, cy, CATCH_RADIUS))
+        if (caught.length > 0) {
+          for (const luma of caught) callbacksRef.current.onCatch(luma.hue)
+          const caughtIds = new Set(caught.map((l) => l.id))
+          s.lumas = s.lumas.filter((l) => !caughtIds.has(l.id))
+          if (s.draggedId !== null && caughtIds.has(s.draggedId)) {
+            s.draggedId = null
+          }
+
+          if (s.lumas.length === 0) {
+            startLevel(s.level + 1)
+          } else {
+            emitHud()
           }
         }
       }
 
-      s.pipes = removeOffscreen(s.pipes)
-
-      drawPipes(ctx, s.pipes, h)
-
-      ctx.save()
-      ctx.translate(BLOOPER_WIDTH * 0.3, s.y + BLOOPER_HEIGHT / 2)
-      const rotation = Math.min(
-        Math.PI / 6,
-        Math.max(-Math.PI / 6, s.velocity * 0.1),
-      )
-      ctx.rotate(rotation)
-      renderChar(ctx, selectedCharacter, 0, 0)
-      ctx.restore()
-
       s.rafId = requestAnimationFrame(loop)
     }
 
-    if (stateRef.current.running) {
-      stateRef.current.rafId = requestAnimationFrame(loop)
-    }
+    s.rafId = requestAnimationFrame(loop)
 
     return () => {
-      running = false
-      cancelAnimationFrame(stateRef.current.rafId)
+      alive = false
+      cancelAnimationFrame(s.rafId)
     }
-  }, [canvasRef, selectedCharacter])
+  }, [canvasRef, startLevel, emitHud])
 
-  return { jump, start, stop }
+  return { pointerDown, start, stop }
 }

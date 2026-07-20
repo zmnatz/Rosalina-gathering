@@ -1,64 +1,30 @@
 import { describe, it, expect } from 'vitest'
-import { tickScore } from './difficulty'
+import { getLevelConfig, tickTimer } from './difficulty'
 
-const base = { score: 0, pipeSpeed: 1.8, spawnRate: 160 }
-
-describe('tickScore', () => {
-  it('increments score by 1 without level up', () => {
-    const result = tickScore(base)
-    expect(result.score).toBe(1)
-    expect(result.levelUp).toBe(false)
-    expect(result.pipeSpeed).toBe(1.8)
-    expect(result.spawnRate).toBe(160)
+describe('getLevelConfig', () => {
+  it('gives level 1 the base time and luma count', () => {
+    expect(getLevelConfig(1)).toEqual({ timeLeft: 28, lumaCount: 8 })
   })
 
-  it('triggers level up at score 5', () => {
-    const result = tickScore({ ...base, score: 4 })
-    expect(result.score).toBe(5)
-    expect(result.levelUp).toBe(true)
-    expect(result.pipeSpeed).toBe(2.0)
-    expect(result.spawnRate).toBe(145)
+  it('reduces time and increases lumas as level rises', () => {
+    expect(getLevelConfig(3)).toEqual({ timeLeft: 24, lumaCount: 14 })
   })
 
-  it('normal tick after level up does not trigger another', () => {
-    const result = tickScore({ ...base, score: 5 })
-    expect(result.score).toBe(6)
-    expect(result.levelUp).toBe(false)
+  it('floors time at the minimum', () => {
+    expect(getLevelConfig(20)).toEqual({ timeLeft: 10, lumaCount: 65 })
+  })
+})
+
+describe('tickTimer', () => {
+  it('decrements the timer by one second', () => {
+    expect(tickTimer(10)).toEqual({ timeLeft: 9, expired: false })
   })
 
-  it('triggers level up at score 10', () => {
-    const result = tickScore({
-      score: 9,
-      pipeSpeed: 2.0,
-      spawnRate: 145,
-    })
-    expect(result.score).toBe(10)
-    expect(result.levelUp).toBe(true)
-    expect(result.pipeSpeed).toBe(2.2)
-    expect(result.spawnRate).toBe(130)
+  it('reports expired when time runs out', () => {
+    expect(tickTimer(1)).toEqual({ timeLeft: 0, expired: true })
   })
 
-  it('floors spawnRate at 80', () => {
-    const result = tickScore({
-      score: 59,
-      pipeSpeed: 4.0,
-      spawnRate: 85,
-    })
-    expect(result.score).toBe(60)
-    expect(result.levelUp).toBe(true)
-    expect(result.pipeSpeed).toBe(4.2)
-    expect(result.spawnRate).toBe(80)
-  })
-
-  it('does not reduce spawnRate below 80', () => {
-    const result = tickScore({
-      score: 64,
-      pipeSpeed: 4.2,
-      spawnRate: 80,
-    })
-    expect(result.score).toBe(65)
-    expect(result.levelUp).toBe(true)
-    expect(result.pipeSpeed).toBe(4.4)
-    expect(result.spawnRate).toBe(80)
+  it('reports expired if already past zero', () => {
+    expect(tickTimer(0)).toEqual({ timeLeft: -1, expired: true })
   })
 })

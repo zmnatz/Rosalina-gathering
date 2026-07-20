@@ -1,21 +1,17 @@
-export type Character = 'original' | 'mario' | 'red' | 'luigi' | 'pink_princess' | 'teal_princess'
-
-export interface Pipe {
+export interface Luma {
+  id: number
   x: number
-  top: number
-  bottom: number
-  passed: boolean
+  y: number
+  baseX: number
+  baseY: number
+  offset: number
+  hue: number
 }
 
 export interface GameState {
-  blooper: { x: number; y: number; velocity: number }
-  pipes: Pipe[]
-  score: number
-  frameCount: number
-  spawnTimer: number
-  pipeSpeed: number
-  spawnRate: number
+  level: number
+  timeLeft: number
+  lumas: Luma[]
   gameRunning: boolean
-  selectedCharacter: Character
   screen: 'menu' | 'playing' | 'gameover'
 }

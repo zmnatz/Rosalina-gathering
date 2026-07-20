@@ -1,168 +1,140 @@
-import type { Character } from './types'
+import type { Luma } from './types'
+import { LUMA_SIZE } from './constants'
 
-export function renderChar(
-  ctx: CanvasRenderingContext2D,
-  charKey: Character,
-  xOffset = 0,
-  yOffset = 0,
-) {
-  ctx.save()
-  ctx.translate(xOffset, yOffset)
-
-  ctx.fillStyle = '#ffeb3b'
-  ctx.strokeStyle = '#fbc02d'
-  ctx.lineWidth = 3
-  ctx.beginPath()
-  ctx.ellipse(0, 15, 35, 12, 0, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.stroke()
-
-  if (charKey.includes('princess')) {
-    const dressColor = charKey === 'pink_princess' ? '#ff69b4' : '#40e0d0'
-    ctx.fillStyle = dressColor
-    ctx.beginPath()
-    ctx.moveTo(-15, 10)
-    ctx.lineTo(15, 10)
-    ctx.lineTo(20, -10)
-    ctx.lineTo(-20, -10)
-    ctx.closePath()
-    ctx.fill()
-    ctx.fillStyle = '#ffe4c4'
-    ctx.beginPath()
-    ctx.arc(0, -15, 12, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#ffd700'
-    ctx.beginPath()
-    ctx.arc(0, -18, 14, Math.PI, 0)
-    ctx.fill()
-    ctx.fillRect(-14, -18, 5, 20)
-    ctx.fillRect(9, -18, 5, 20)
-  } else {
-    let bodyColor = 'white'
-    if (charKey === 'red') bodyColor = '#ff4444'
-    if (charKey === 'luigi') bodyColor = '#4caf50'
-    ctx.fillStyle = bodyColor
-    ctx.strokeStyle = '#ddd'
-    ctx.beginPath()
-    ctx.ellipse(0, -5, 20, 25, 0, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
-    ctx.beginPath()
-    for (let i = -15; i <= 15; i += 10) {
-      ctx.moveTo(i, 10)
-      ctx.quadraticCurveTo(i + 5, 20, i + 10, 10)
-    }
-    ctx.stroke()
-    ctx.fillStyle = '#333'
-    ctx.beginPath()
-    ctx.ellipse(-8, -10, 10, 6, 0.2, 0, Math.PI * 2)
-    ctx.ellipse(8, -10, 10, 6, -0.2, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = 'white'
-    ctx.beginPath()
-    ctx.arc(-8, -10, 5, 0, Math.PI * 2)
-    ctx.arc(8, -10, 5, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = 'black'
-    ctx.beginPath()
-    ctx.arc(-8, -10, 3, 0, Math.PI * 2)
-    ctx.arc(8, -10, 3, 0, Math.PI * 2)
-    ctx.fill()
-    if (charKey === 'mario') {
-      ctx.fillStyle = 'red'
-      ctx.beginPath()
-      ctx.arc(0, -25, 12, Math.PI, 0)
-      ctx.fill()
-      ctx.fillStyle = 'white'
-      ctx.beginPath()
-      ctx.arc(0, -28, 5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.fillStyle = 'red'
-      ctx.font = 'bold 8px Arial'
-      ctx.textAlign = 'center'
-      ctx.fillText('M', 0, -27)
-    }
-    if (charKey === 'luigi') {
-      ctx.fillStyle = '#4caf50'
-      ctx.beginPath()
-      ctx.arc(0, -25, 12, Math.PI, 0)
-      ctx.fill()
-      ctx.fillStyle = 'white'
-      ctx.beginPath()
-      ctx.arc(0, -28, 5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.fillStyle = '#4caf50'
-      ctx.font = 'bold 8px Arial'
-      ctx.textAlign = 'center'
-      ctx.fillText('L', 0, -27)
-    }
-  }
-  ctx.restore()
+export interface Star {
+  x: number
+  y: number
+  radius: number
+  duration: number
+  seed: number
 }
 
-export function generateMenuImage(char: Character): string {
-  const c = document.createElement('canvas')
-  c.width = 100
-  c.height = 100
-  const ctx = c.getContext('2d')!
-  renderChar(ctx, char, 50, 50)
-  return c.toDataURL()
+export function createStars(
+  canvasW: number,
+  canvasH: number,
+  count = 100,
+  rng: () => number = Math.random,
+): Star[] {
+  const stars: Star[] = []
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: rng() * canvasW,
+      y: rng() * canvasH,
+      radius: rng() * 1.5,
+      duration: rng() * 3 + 2,
+      seed: rng() * Math.PI * 2,
+    })
+  }
+  return stars
 }
 
 export function drawBackground(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
-  frameCount: number,
+  stars: Star[],
+  elapsedSeconds: number,
 ) {
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, h)
-  skyGrad.addColorStop(0, '#81d4fa')
-  skyGrad.addColorStop(0.5, '#4fc3f7')
-  ctx.fillStyle = skyGrad
+  const grad = ctx.createRadialGradient(
+    w / 2,
+    h / 2,
+    0,
+    w / 2,
+    h / 2,
+    Math.max(w, h) / 1.2,
+  )
+  grad.addColorStop(0, '#1b2735')
+  grad.addColorStop(1, '#050b24')
+  ctx.fillStyle = grad
   ctx.fillRect(0, 0, w, h)
-  ctx.fillStyle = '#ffe082'
-  ctx.fillRect(0, h - 100, w, 100)
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'
-  for (let i = 0; i < 3; i++) {
+
+  ctx.fillStyle = 'white'
+  for (const star of stars) {
+    const phase = (elapsedSeconds / star.duration) * Math.PI * 2 + star.seed
+    const opacity = 0.3 + (Math.sin(phase) * 0.5 + 0.5) * 0.7
+    ctx.globalAlpha = opacity
     ctx.beginPath()
-    const offset = i * 50
-    const speed = (i + 1) * 0.02
-    ctx.moveTo(0, h - 80 - offset)
-    for (let x = 0; x <= w; x += 10) {
-      const y = Math.sin(x * 0.01 + frameCount * speed) * 15
-      ctx.lineTo(x, h - 80 - offset + y)
-    }
-    ctx.lineTo(w, h)
-    ctx.lineTo(0, h)
+    ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2)
     ctx.fill()
   }
+  ctx.globalAlpha = 1
 }
 
-export function drawPipes(
+export function drawRosalina(
   ctx: CanvasRenderingContext2D,
-  pipes: { x: number; top: number; bottom: number }[],
-  canvasH: number,
+  cx: number,
+  cy: number,
 ) {
-  for (const p of pipes) {
-    ctx.fillStyle = '#8d6e63'
-    ctx.strokeStyle = '#5d4037'
-    ctx.lineWidth = 5
-    ctx.beginPath()
-    ctx.roundRect(p.x + 15, 0, 30, p.top, [0, 0, 10, 10])
-    ctx.fill()
-    ctx.stroke()
-    ctx.fillStyle = '#4caf50'
-    ctx.beginPath()
-    ctx.arc(p.x + 30, p.top, 40, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#8d6e63'
-    ctx.beginPath()
-    ctx.roundRect(p.x + 15, canvasH - p.bottom, 30, p.bottom, [10, 10, 0, 0])
-    ctx.fill()
-    ctx.stroke()
-    ctx.fillStyle = '#4caf50'
-    ctx.beginPath()
-    ctx.arc(p.x + 30, canvasH - p.bottom, 40, 0, Math.PI * 2)
-    ctx.fill()
+  ctx.fillStyle = '#ffd700'
+  ctx.fillRect(cx - 40, cy, 80, 30)
+  ctx.fillRect(cx - 30, cy - 30, 60, 30)
+
+  ctx.fillStyle = '#4a90e2'
+  ctx.beginPath()
+  ctx.moveTo(cx, cy - 10)
+  ctx.lineTo(cx - 20, cy + 10)
+  ctx.lineTo(cx + 20, cy + 10)
+  ctx.fill()
+
+  ctx.fillStyle = '#ffe0bd'
+  ctx.beginPath()
+  ctx.arc(cx, cy - 20, 12, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.fillStyle = '#fdf5e6'
+  ctx.beginPath()
+  ctx.arc(cx, cy - 25, 14, Math.PI, 0)
+  ctx.fill()
+  ctx.fillRect(cx + 10, cy - 25, 8, 20)
+
+  ctx.fillStyle = 'gold'
+  ctx.fillRect(cx - 5, cy - 35, 10, 5)
+}
+
+function starPath(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  spikes: number,
+  outerRadius: number,
+  innerRadius: number,
+) {
+  let rot = (Math.PI / 2) * 3
+  const step = Math.PI / spikes
+  ctx.beginPath()
+  ctx.moveTo(cx, cy - outerRadius)
+  for (let i = 0; i < spikes; i++) {
+    let x = cx + Math.cos(rot) * outerRadius
+    let y = cy + Math.sin(rot) * outerRadius
+    ctx.lineTo(x, y)
+    rot += step
+
+    x = cx + Math.cos(rot) * innerRadius
+    y = cy + Math.sin(rot) * innerRadius
+    ctx.lineTo(x, y)
+    rot += step
   }
+  ctx.lineTo(cx, cy - outerRadius)
+  ctx.closePath()
+}
+
+export function drawLuma(ctx: CanvasRenderingContext2D, luma: Luma) {
+  const color = `hsl(${luma.hue}, 100%, 70%)`
+
+  ctx.save()
+  ctx.shadowBlur = 15
+  ctx.shadowColor = color
+  ctx.fillStyle = color
+  ctx.lineJoin = 'round'
+  ctx.lineWidth = 4
+  starPath(ctx, luma.x, luma.y, 5, LUMA_SIZE, LUMA_SIZE / 2)
+  ctx.fill()
+  ctx.stroke()
+  ctx.restore()
+
+  ctx.fillStyle = 'black'
+  ctx.beginPath()
+  ctx.arc(luma.x - 4, luma.y - 2, 2, 0, Math.PI * 2)
+  ctx.arc(luma.x + 4, luma.y - 2, 2, 0, Math.PI * 2)
+  ctx.fill()
 }

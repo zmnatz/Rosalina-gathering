@@ -1,26 +1,26 @@
-import type { Pipe } from './types'
+import type { Luma } from './types'
 
-export interface BlooperConfig {
-  width: number
-  height: number
+export function distance(ax: number, ay: number, bx: number, by: number): number {
+  return Math.hypot(ax - bx, ay - by)
 }
 
-export function checkPipeCollision(
-  blooperY: number,
-  pipe: Pipe,
-  canvasH: number,
-  config: BlooperConfig,
+export function isCaught(
+  luma: Luma,
+  centerX: number,
+  centerY: number,
+  radius: number,
 ): boolean {
-  const leftNudge = config.width * 0.2
-  const rightNudge = config.width * 0.8
-  const pipeLeft = pipe.x + 15
-  const pipeRight = pipe.x + 45
+  return distance(luma.x, luma.y, centerX, centerY) < radius
+}
 
-  const hitsPipe =
-    leftNudge < pipeRight &&
-    rightNudge > pipeLeft &&
-    (blooperY + 15 < pipe.top ||
-      blooperY + config.height - 15 > canvasH - pipe.bottom)
-
-  return hitsPipe
+export function findLumaAt(
+  lumas: Luma[],
+  x: number,
+  y: number,
+  pickRadius: number,
+): Luma | null {
+  for (const luma of lumas) {
+    if (distance(luma.x, luma.y, x, y) < pickRadius) return luma
+  }
+  return null
 }

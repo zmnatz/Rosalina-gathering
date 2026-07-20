@@ -1,4 +1,4 @@
-const CACHE_NAME = 'surfing-blooper-v1'
+const CACHE_NAME = 'rosalinas-gathering-v1'
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()

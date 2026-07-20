@@ -1,33 +1,29 @@
-export interface DifficultyState {
-  score: number
-  pipeSpeed: number
-  spawnRate: number
+import {
+  BASE_TIME,
+  MIN_TIME,
+  TIME_DECREASE_PER_LEVEL,
+  BASE_LUMA_COUNT,
+  LUMA_COUNT_PER_LEVEL,
+} from './constants'
+
+export interface LevelConfig {
+  timeLeft: number
+  lumaCount: number
 }
 
-export interface TickResult {
-  score: number
-  pipeSpeed: number
-  spawnRate: number
-  levelUp: boolean
-}
-
-export function tickScore(state: DifficultyState): TickResult {
-  const newScore = state.score + 1
-  const isLevelUp = newScore % 5 === 0
-
-  if (!isLevelUp) {
-    return {
-      score: newScore,
-      pipeSpeed: state.pipeSpeed,
-      spawnRate: state.spawnRate,
-      levelUp: false,
-    }
-  }
-
+export function getLevelConfig(level: number): LevelConfig {
   return {
-    score: newScore,
-    pipeSpeed: state.pipeSpeed + 0.2,
-    spawnRate: Math.max(80, state.spawnRate - 15),
-    levelUp: true,
+    timeLeft: Math.max(MIN_TIME, BASE_TIME - level * TIME_DECREASE_PER_LEVEL),
+    lumaCount: BASE_LUMA_COUNT + level * LUMA_COUNT_PER_LEVEL,
   }
+}
+
+export interface TimerTickResult {
+  timeLeft: number
+  expired: boolean
+}
+
+export function tickTimer(timeLeft: number): TimerTickResult {
+  const next = timeLeft - 1
+  return { timeLeft: next, expired: next <= 0 }
 }

@@ -2,8 +2,10 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background-color: #00b4db;
-  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial', sans-serif;
+  background-color: #050b24;
+  font-family: 'Courier New', Courier, monospace;
+  color: white;
+  user-select: none;
   touch-action: none;
 }
 
